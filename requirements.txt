@@ -1,0 +1,7 @@
+# File: requirements.txt
+Flask
+yfinance
+ta
+pandas
+numpy
+chartjs
