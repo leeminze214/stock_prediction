@@ -4,4 +4,4 @@ yfinance
 ta
 pandas
 numpy
-chartjs
+# chartjs is a JS library, not a Python package, so it is removed

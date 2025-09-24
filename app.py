@@ -20,6 +20,10 @@ LOOKBACKS = {
 
 # --- Data fetching ---
 def fetch_data(symbol, interval, period):
+    # For ES, use a longer period and coarser interval for more data
+    if symbol == 'ES=F' and interval == '5m' and period == '1d':
+        interval = '15m'
+        period = '5d'
     df = yf.download(tickers=symbol, interval=interval, period=period,
                      auto_adjust=False, progress=False)
     df.dropna(inplace=True)
@@ -48,7 +52,21 @@ def initial_balance(df):
     # use 09:30-10:30 Eastern session
     fh = df.between_time('09:30', '10:30')
     if fh.empty:
-        fh = df.head(int(60/ (pd.Timedelta(df.index.freq).seconds/60)))
+        # Fallback: estimate frequency or default to 5 minutes
+        freq = df.index.freq
+        if freq is None:
+            # Try to infer frequency from index
+            if len(df.index) > 1:
+                freq = df.index[1] - df.index[0]
+            else:
+                freq = pd.Timedelta('5min')
+        else:
+            freq = pd.Timedelta(freq)
+        try:
+            n = int(60 / (freq.seconds / 60))
+        except Exception:
+            n = 12  # Default to 12 bars (5min intervals)
+        fh = df.head(n)
     high = fh['High'].max()
     low = fh['Low'].min()
     return float(high), float(low)
@@ -92,7 +110,12 @@ def predict_trend(df):
 # Price Range Forecast
 def price_range(df, days):
     last = float(df['Close'].iloc[-1])
-    std = float(df['Close'].rolling(20).std().iloc[-1])
+    std = df['Close'].rolling(20).std().iloc[-1]
+    # Fix: handle Series or NaN std
+    if isinstance(std, pd.Series):
+        std = std.iloc[0]
+    if pd.isna(std):
+        std = 0.0
     return (last - std*days, last + std*days)
 
 # Placeholder probabilities
